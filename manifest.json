@@ -1,0 +1,9 @@
+{
+  "name": "Ephemera",
+  "short_name": "Ephemera",
+  "display": "standalone",
+  "orientation": "any",
+  "start_url": ".",
+  "background_color": "#08060a",
+  "theme_color": "#08060a"
+}
