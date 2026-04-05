@@ -8,6 +8,8 @@
 <meta name="theme-color" content="#08060a">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" id="apple-icon">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
 <title>Ephemera</title>
 <style>
   *, *::before, *::after {
@@ -148,6 +150,50 @@
   <script>
     document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+    (function generateIcon() {
+      var s = 180;
+      var c = document.createElement('canvas');
+      c.width = s;
+      c.height = s;
+      var ctx = c.getContext('2d');
+      var cx = s / 2;
+
+      ctx.fillStyle = '#08060a';
+      ctx.fillRect(0, 0, s, s);
+
+      var bloom = ctx.createRadialGradient(cx, cx, 0, cx, cx, 60);
+      bloom.addColorStop(0, 'rgba(180,160,200,0.12)');
+      bloom.addColorStop(0.5, 'rgba(150,130,175,0.05)');
+      bloom.addColorStop(1, 'rgba(150,130,175,0)');
+      ctx.fillStyle = bloom;
+      ctx.beginPath();
+      ctx.arc(cx, cx, 60, 0, Math.PI * 2);
+      ctx.fill();
+
+      var glow = ctx.createRadialGradient(cx, cx, 0, cx, cx, 28);
+      glow.addColorStop(0, 'rgba(225,215,235,0.9)');
+      glow.addColorStop(0.25, 'rgba(200,185,215,0.6)');
+      glow.addColorStop(0.55, 'rgba(170,150,190,0.2)');
+      glow.addColorStop(0.8, 'rgba(140,120,165,0.05)');
+      glow.addColorStop(1, 'rgba(140,120,165,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(cx, cx, 28, 0, Math.PI * 2);
+      ctx.fill();
+
+      var core = ctx.createRadialGradient(cx, cx, 0, cx, cx, 5);
+      core.addColorStop(0, 'rgba(255,255,255,1)');
+      core.addColorStop(0.4, 'rgba(235,228,240,0.95)');
+      core.addColorStop(1, 'rgba(220,210,230,0.85)');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(cx, cx, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      var link = document.getElementById('apple-icon');
+      if (link) link.href = c.toDataURL('image/png');
+    })();
   </script>
 </body>
 </html>

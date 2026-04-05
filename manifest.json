@@ -5,5 +5,13 @@
   "orientation": "any",
   "start_url": ".",
   "background_color": "#08060a",
-  "theme_color": "#08060a"
+  "theme_color": "#08060a",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }
