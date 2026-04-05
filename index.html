@@ -55,101 +55,169 @@
   }
 
   .breath {
-    position: relative;
-    width: 4px;
-    height: 4px;
+    position: absolute;
     border-radius: 50%;
-    animation: breathe 12s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    will-change: transform, opacity;
+    pointer-events: none;
   }
 
-  .breath::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
+  .breath-bloom {
     background: radial-gradient(
       circle at center,
-      rgba(225, 215, 235, 0.95) 0%,
-      rgba(200, 185, 215, 0.7) 20%,
-      rgba(170, 150, 190, 0.3) 45%,
-      rgba(140, 120, 165, 0.08) 70%,
-      transparent 100%
-    );
-    animation: breathe-glow 12s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
-  .breath::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    background: radial-gradient(
-      circle at center,
-      rgba(180, 160, 200, 0.12) 0%,
-      rgba(150, 130, 175, 0.05) 40%,
+      rgba(160, 140, 185, 0.10) 0%,
+      rgba(140, 120, 165, 0.04) 40%,
       transparent 70%
     );
-    animation: breathe-bloom 12s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
-  @keyframes breathe {
-    0%, 100% {
-      width: 4px;
-      height: 4px;
-      background: rgba(220, 210, 230, 0.9);
-      box-shadow:
-        0 0 4px 1px rgba(210, 195, 225, 0.6),
-        0 0 8px 2px rgba(190, 170, 210, 0.3);
-    }
-    50% {
-      width: 8px;
-      height: 8px;
-      background: rgba(235, 228, 240, 1);
-      box-shadow:
-        0 0 6px 2px rgba(220, 208, 235, 0.8),
-        0 0 15px 5px rgba(195, 175, 215, 0.4),
-        0 0 30px 10px rgba(170, 148, 195, 0.15);
-    }
+  .breath-glow {
+    background: radial-gradient(
+      circle at center,
+      rgba(225, 215, 235, 0.85) 0%,
+      rgba(200, 185, 215, 0.55) 15%,
+      rgba(170, 150, 190, 0.20) 40%,
+      rgba(140, 120, 165, 0.05) 70%,
+      transparent 100%
+    );
   }
 
-  @keyframes breathe-glow {
-    0%, 100% {
-      width: 40px;
-      height: 40px;
-      opacity: 0.6;
-    }
-    50% {
-      width: 70px;
-      height: 70px;
-      opacity: 1;
-    }
-  }
-
-  @keyframes breathe-bloom {
-    0%, 100% {
-      width: 90px;
-      height: 90px;
-      opacity: 0.4;
-    }
-    50% {
-      width: 160px;
-      height: 160px;
-      opacity: 0.7;
-    }
+  .breath-core {
+    background: radial-gradient(
+      circle at center,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(240, 232, 248, 0.9) 30%,
+      rgba(220, 210, 230, 0.6) 60%,
+      transparent 100%
+    );
   }
 </style>
 </head>
 <body>
-  <div class="breath"></div>
+  <div class="breath breath-bloom"></div>
+  <div class="breath breath-glow"></div>
+  <div class="breath breath-core"></div>
   <script>
     document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
     document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+    (function() {
+      var bloom = document.querySelector('.breath-bloom');
+      var glow = document.querySelector('.breath-glow');
+      var core = document.querySelector('.breath-core');
+
+      // Size range as fraction of viewport min dimension
+      var minScale = 0.02;   // contracted: a gentle point
+      var maxScale = 0.75;   // expanded: ~75% of screen width
+
+      // Bloom is larger than glow, core is smallest
+      var bloomRatio = 1.4;
+      var coreRatio = 0.12;
+
+      // Base durations (ms)
+      var baseCycle = 11000;
+      var inhaleRatio = 0.38;  // inhale is ~38%, exhale ~52%, rest ~10%
+      var restRatio = 0.10;
+
+      // Variation range: each cycle varies by +/- this fraction
+      var driftRange = 0.18;
+
+      function vmin() {
+        return Math.min(window.innerWidth, window.innerHeight);
+      }
+
+      function vary(base) {
+        return base * (1 + (Math.random() * 2 - 1) * driftRange);
+      }
+
+      // Custom easing: slow start, gentle peak, slow release
+      // Uses a shaped power curve with a plateau near t=1
+      function easeInhale(t) {
+        // Slow to start, accelerates, then eases into peak
+        return t < 0.7
+          ? 0.5 * Math.pow(t / 0.7, 1.8)
+          : 0.5 + 0.5 * (1 - Math.pow(1 - (t - 0.7) / 0.3, 2.5));
+      }
+
+      function easeExhale(t) {
+        // Very slow to leave peak, then gradual release
+        return 1 - (t < 0.15
+          ? 0.05 * Math.pow(t / 0.15, 2.8)
+          : 0.05 + 0.95 * Math.pow((t - 0.15) / 0.85, 1.6));
+      }
+
+      function applySize(scale) {
+        var v = vmin();
+        var glowSize = v * scale;
+        var bloomSize = glowSize * bloomRatio;
+        var coreSize = Math.max(4, glowSize * coreRatio);
+
+        bloom.style.width = bloom.style.height = bloomSize + 'px';
+        bloom.style.left = (window.innerWidth - bloomSize) / 2 + 'px';
+        bloom.style.top = (window.innerHeight - bloomSize) / 2 + 'px';
+
+        glow.style.width = glow.style.height = glowSize + 'px';
+        glow.style.left = (window.innerWidth - glowSize) / 2 + 'px';
+        glow.style.top = (window.innerHeight - glowSize) / 2 + 'px';
+
+        core.style.width = core.style.height = coreSize + 'px';
+        core.style.left = (window.innerWidth - coreSize) / 2 + 'px';
+        core.style.top = (window.innerHeight - coreSize) / 2 + 'px';
+
+        // Opacity breathes too
+        var normalizedScale = (scale - minScale) / (maxScale - minScale);
+        bloom.style.opacity = 0.3 + normalizedScale * 0.7;
+        glow.style.opacity = 0.4 + normalizedScale * 0.6;
+        core.style.opacity = 0.6 + normalizedScale * 0.4;
+      }
+
+      // Breath cycle state
+      var cycleStart = 0;
+      var inhaleDur = 0;
+      var restDur = 0;
+      var exhaleDur = 0;
+      var totalDur = 0;
+
+      function newCycle(now) {
+        cycleStart = now;
+        totalDur = vary(baseCycle);
+        inhaleDur = totalDur * vary(inhaleRatio);
+        restDur = totalDur * vary(restRatio);
+        exhaleDur = totalDur - inhaleDur - restDur;
+      }
+
+      function tick(now) {
+        if (!cycleStart) newCycle(now);
+
+        var elapsed = now - cycleStart;
+
+        if (elapsed >= totalDur) {
+          newCycle(now);
+          elapsed = 0;
+        }
+
+        var scale;
+        if (elapsed < inhaleDur) {
+          // Inhale
+          scale = minScale + (maxScale - minScale) * easeInhale(elapsed / inhaleDur);
+        } else if (elapsed < inhaleDur + restDur) {
+          // Rest at peak — very subtle drift, not frozen
+          var restT = (elapsed - inhaleDur) / restDur;
+          var drift = Math.sin(restT * Math.PI) * 0.008;
+          scale = maxScale + drift;
+        } else {
+          // Exhale
+          var exhaleT = (elapsed - inhaleDur - restDur) / exhaleDur;
+          scale = minScale + (maxScale - minScale) * easeExhale(exhaleT);
+        }
+
+        applySize(scale);
+        requestAnimationFrame(tick);
+      }
+
+      // Start mid-breath so it feels already alive
+      applySize(minScale + (maxScale - minScale) * 0.3);
+      requestAnimationFrame(tick);
+    })();
 
     (function generateIcon() {
       var s = 180;
