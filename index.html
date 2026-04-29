@@ -247,8 +247,25 @@
       var bloomRatio=1.4, coreRatio=0.08;
       var baseCycle=11000, inhaleRatio=0.38, restRatio=0.10, driftRange=0.18;
 
+      // Resting baseline: gentler than the engineered peak.
+      var baseFrac=0.87;
+      // Session settling — re-welcomes on every app open. Per-session variation.
+      var sessStart=performance.now();
+      var settleDur=(4+Math.random()*2)*6e4;          // 4–6 min
+      var wAmp=0.32+Math.random()*0.10;                // welcoming amp overlay (≈+32–42%)
+      var wDur=0.32+Math.random()*0.10;                // welcoming dur overlay
+      // Sigh rhythm — depends only on history since the last deeper breath.
+      var sinceDeep=0, postDeep=0;
+
       function vmax(){return Math.max(window.innerWidth,window.innerHeight);}
       function vary(base){return base*(1+(Math.random()*2-1)*driftRange);}
+
+      // 1 at session start, smoothly to 0 once settling completes.
+      function settling(now){
+        var x=(now-sessStart)/settleDur;
+        if(x>=1) return 0; if(x<=0) return 1;
+        var u=1-x; return u*u*(3-2*u);
+      }
 
       function easeInhale(t){
         return t<0.7?0.5*Math.pow(t/0.7,1.8):0.5+0.5*(1-Math.pow(1-(t-0.7)/0.3,2.5));
@@ -279,14 +296,58 @@
         coreEl.style.opacity=0.6+n*0.4;
       }
 
-      var cycleStart=0,inhaleDur=0,restDur=0,exhaleDur=0,totalDur=0;
+      var cycleStart=0,inhaleDur=0,restDur=0,exhaleDur=0,totalDur=0,peakScale=maxScale;
 
       function newCycle(now){
+        var s=settling(now);
+        var sighsAllowed=s<=0.02;     // sighs only after settling has largely completed
+        var ampMul=baseFrac, durMul=1.0;
+
+        if(sighsAllowed){
+          // Probability of a deeper breath grows with history but never reaches certainty.
+          var p=Math.max(0,(sinceDeep-4)/22);
+          if(postDeep>0) p=0;
+          p=Math.min(p,0.5);
+          if(Math.random()<p){
+            // The periodic sigh — 110–120% of baseline, occasionally a touch more.
+            var depth=1.10+Math.random()*0.10;
+            if(Math.random()<0.18) depth+=Math.random()*0.05;
+            ampMul=baseFrac*depth;
+            durMul=1.10+Math.random()*0.05;
+            sinceDeep=0;
+            postDeep=2+(Math.random()<0.5?1:0);   // 2–3 quiet breaths likely to follow
+          } else if(postDeep>0){
+            // Among the shallowest — body just got what it needed.
+            ampMul=baseFrac*(0.86+Math.random()*0.06);
+            postDeep--;
+            sinceDeep++;
+          } else {
+            // Quiet breath: skewed toward small reductions; rarely brushes baseline.
+            var r=Math.random();
+            var red=r*r*0.12;
+            if(r<0.18) red=-Math.random()*0.02;
+            ampMul=baseFrac*(1-red);
+            sinceDeep++;
+          }
+        }
+        // While settling, sighs and counters are dormant; baseline is the floor.
+
+        // Welcoming overlay — fuller, slower; smoothly vanishes as we settle.
+        ampMul*=1+s*wAmp;
+        durMul*=1+s*wDur;
+
+        // Breath-to-breath unevenness during the arc — the trend is not monotonic.
+        if(s>0.02){
+          ampMul*=1+(Math.random()*2-1)*0.05*s;
+          durMul*=1+(Math.random()*2-1)*0.04*s;
+        }
+
         cycleStart=now;
-        totalDur=vary(baseCycle);
+        totalDur=vary(baseCycle)*durMul;
         inhaleDur=totalDur*vary(inhaleRatio);
         restDur=totalDur*vary(restRatio);
         exhaleDur=totalDur-inhaleDur-restDur;
+        peakScale=minScale+(maxScale-minScale)*ampMul;
       }
 
       function tick(now){
@@ -296,11 +357,11 @@
 
         var scale;
         if(elapsed<inhaleDur){
-          scale=minScale+(maxScale-minScale)*easeInhale(elapsed/inhaleDur);
+          scale=minScale+(peakScale-minScale)*easeInhale(elapsed/inhaleDur);
         } else if(elapsed<inhaleDur+restDur){
-          scale=maxScale+Math.sin((elapsed-inhaleDur)/restDur*Math.PI)*0.008;
+          scale=peakScale+Math.sin((elapsed-inhaleDur)/restDur*Math.PI)*0.008;
         } else {
-          scale=minScale+(maxScale-minScale)*easeExhale((elapsed-inhaleDur-restDur)/exhaleDur);
+          scale=minScale+(peakScale-minScale)*easeExhale((elapsed-inhaleDur-restDur)/exhaleDur);
         }
         applySize(scale);
         requestAnimationFrame(tick);
